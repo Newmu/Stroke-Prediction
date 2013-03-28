@@ -12,7 +12,6 @@ from sklearn import linear_model
 from skimage.feature import corner_harris, corner_subpix, corner_peaks, corner_foerstner
 from scipy.ndimage.filters import convolve
 from PIL import Image
-from rbm import rbm
 import cPickle
 from scipy import interpolate
 
@@ -41,6 +40,44 @@ def pilResize(a,size):
 	pilImg = pilImg.resize(size, Image.ANTIALIAS)
 	return np.array(pilImg)
 
+def energy(self,v,h,w):
+	cbs = np.dstack(np.meshgrid(v,h)).reshape(-1, 2)
+	return -(np.prod(cbs,axis=1)*w.flatten()).sum()
+
+''' Stochastic activation of hidden layer given input and weights '''
+def actH(self,v,h,w,stochastic=True):
+	z = (v*w).sum(axis=1)
+	prob = 1/(1+np.exp(-z))
+	if stochastic:
+		h = np.array((prob > np.random.random(h.size)),dtype=int)
+	else:
+		h = prob
+	return h
+
+''' Stochasitic activation of visible layer given hidden and weights '''
+def actV(self,v,h,w,stochastic=True):
+	z = (h*w.transpose()).sum(axis=1)
+	prob = 1/(1+np.exp(-z))
+	if stochastic:
+		v = np.array((prob > np.random.random(v.size)),dtype=int)
+	else:
+		v = prob
+	return v
+
+''' Quick single pass contrastive divergence to update weights '''
+def updateWeights(self,v,h,w,lr,stochastic=True):
+	h = actH(v,h,w)
+	start = np.prod(np.dstack(np.meshgrid(v,h)).reshape(-1, 2),axis=1)
+	v = actV(v,h,w,stochastic)
+	h = actH(v,h,w)
+	end = np.prod(np.dstack(np.meshgrid(v,h)).reshape(-1, 2),axis=1)
+	dw = lr*(start-end)
+	w += dw.reshape((h.size,v.size))
+	return w
+
+def randomSample(self,a):
+	index = np.random.randint(0,a.shape[0])
+	return a[index]
 
 reader = open('train.csv')
 sigs = defaultdict(list)
@@ -65,89 +102,87 @@ for i,line in enumerate(reader):
 # plt.imshow(img,cmap='gray')
 # plt.show()
 
-imgs = []
-paths = []
-# # for i in xrange(1,len(sigs)):
-for i in xrange(1,len(sigs)):
-	print i
-	path = np.array(sigs[i])
-	imgO = imread(getFilePath(i),as_grey=True)
-	# thresh = Filter.threshold_otsu(imgO)
-	thresh = 0.9
-	img = imgO < thresh
-	y,x = np.nonzero(img)
-	img = skeletonize(img)
-	# y,x = np.nonzero(img)
-	img = img[y.min():y.max(),x.min():x.max()]
-	imgO = imgO[y.min():y.max(),x.min():x.max()]
-	sumArr = np.array([[1,1,1],[1,1,1],[1,1,1]])
-	summed = convolve(img,sumArr,mode='constant',cval=0)
-	# corners = (((summed == 2) | (summed > 4)) & (img == 1))
-	corners = ((summed == 2) & (img == 1))
-	intersects = ((summed >= 4) & (img == 1))
-	corners = np.transpose(np.array(np.nonzero(corners)))
-	# corners[:,1] += x.min()
-	# corners[:,0] += y.min()
-	# img01 = pilResize(imgO,(100,100))
-	# img02 = resize(imgO,(100,100))
-	# img01 = np.array((img01 > thresh),dtype=int)
-	# img02 = np.array((img02 > thresh),dtype=int)
-	path[:,0] = path[:,0]*imgO.shape[1]
-	path[:,1] = path[:,1]*imgO.shape[0]
-	path[:,2] = path[:,2]/path[:,2].max()
-	t = np.copy(path[:,2])
-	x = np.copy(path[:,0])
-	y = np.copy(path[:,1])
-	mask = ((np.diff(x) == 0) & (np.diff(y) == 0))
-	t[mask] += np.random.random(len(t[mask]))/10000.0
-	x[mask] += np.random.random(len(t[mask]))/100.0
-	y[mask] += np.random.random(len(t[mask]))/100.0
-	tck,u = interpolate.splprep([x,y],k=1,s=0.1)
-	tnew = np.linspace(0,1,300)
-	outx,outy = interpolate.splev(tnew,tck)
-	# tck,u = interpolate.bisplrep(x,y,t)
-	# unew = np.linspace(0,1,300)
-	# outx,outy = interpolate.bisplev(unew,tck)
-	# print outx
-	# print outy
-	# plt.imshow(imgO,cmap='gray')
-	# plt.plot(path[:,0],path[:,1],'r')
-	# plt.plot(outx,outy,'b')
-	paths.append([outx,outy,tnew])
-	# plt.scatter(corners[:,1],corners[:,0],s=50,c='red')
-	# imgs.append(img02.flatten())
-	# plt.show()
-paths = np.array(paths)
+# imgs = []
+# paths = []
+# # # for i in xrange(1,len(sigs)):
+# for i in xrange(1,len(sigs)):
+# 	print i
+# 	path = np.array(sigs[i])
+# 	imgO = imread(getFilePath(i),as_grey=True)
+# 	# thresh = Filter.threshold_otsu(imgO)
+# 	thresh = 0.9
+# 	img = imgO < thresh
+# 	y,x = np.nonzero(img)
+# 	img = skeletonize(img)
+# 	# y,x = np.nonzero(img)
+# 	img = img[y.min():y.max(),x.min():x.max()]
+# 	imgO = imgO[y.min():y.max(),x.min():x.max()]
+# 	sumArr = np.array([[1,1,1],[1,1,1],[1,1,1]])
+# 	summed = convolve(img,sumArr,mode='constant',cval=0)
+# 	# corners = (((summed == 2) | (summed > 4)) & (img == 1))
+# 	corners = ((summed == 2) & (img == 1))
+# 	intersects = ((summed >= 4) & (img == 1))
+# 	corners = np.transpose(np.array(np.nonzero(corners)))
+# 	# corners[:,1] += x.min()
+# 	# corners[:,0] += y.min()
+# 	# img01 = pilResize(imgO,(100,100))
+# 	# img02 = resize(imgO,(100,100))
+# 	# img01 = np.array((img01 > thresh),dtype=int)
+# 	# img02 = np.array((img02 > thresh),dtype=int)
+# 	path[:,0] = path[:,0]*imgO.shape[1]
+# 	path[:,1] = path[:,1]*imgO.shape[0]
+# 	path[:,2] = path[:,2]/path[:,2].max()
+# 	t = np.copy(path[:,2])
+# 	x = np.copy(path[:,0])
+# 	y = np.copy(path[:,1])
+# 	mask = ((np.diff(x) == 0) & (np.diff(y) == 0))
+# 	t[mask] += np.random.random(len(t[mask]))/10000.0
+# 	x[mask] += np.random.random(len(t[mask]))/100.0
+# 	y[mask] += np.random.random(len(t[mask]))/100.0
+# 	tck,u = interpolate.splprep([x,y],k=1,s=0.1)
+# 	tnew = np.linspace(0,1,300)
+# 	outx,outy = interpolate.splev(tnew,tck)
+# 	# tck,u = interpolate.bisplrep(x,y,t)
+# 	# unew = np.linspace(0,1,300)
+# 	# outx,outy = interpolate.bisplev(unew,tck)
+# 	# print outx
+# 	# print outy
+# 	# plt.imshow(imgO,cmap='gray')
+# 	# plt.plot(path[:,0],path[:,1],'r')
+# 	# plt.plot(outx,outy,'b')
+# 	paths.append([outx,outy,tnew])
+# 	# plt.scatter(corners[:,1],corners[:,0],s=50,c='red')
+# 	# imgs.append(img02.flatten())
+# 	# plt.show()
+# paths = np.array(paths)
 # imgs = np.array(imgs)
-# imgs = cPickle.load(open('imgs100pxFull.p','rb'))
+imgs = cPickle.load(open('imgs100pxFull.p','rb'))
+paths = cPickle.load(open('pathsLinInterp.p','rb'))
 # print imgs.shape
 # cPickle.dump(imgs,open('imgs100pxFull.p','wb'))
-cPickle.dump(paths,open('pathsLinInterp.p','wb'))
+# cPickle.dump(paths,open('pathsLinInterp.p','wb'))
 
-# rbm = rbm(10000,1000,0.01)
-# lr = 0.05
-# v = rbm.randomSample(imgs)
-# h = np.zeros(100)
-# w = np.random.normal(loc=0,scale=0.01,size=(h.size,v.size))
+rbm = rbm(10000,1000,0.01)
+lr = 0.05
+v = rbm.randomSample(imgs)
+h = np.zeros(1000)
+w = np.random.normal(loc=0,scale=0.01,size=(h.size,v.size))
 
-# for i in xrange(10000):
-# 	print i
-# 	v = rbm.randomSample(imgs)
-# 	if i > 9995: 
-# 		# plt.imshow(actH(v,h,w,stochastic=False).reshape(25,-1),cmap='gray')
-# 		# plt.plot(actH(v,h,w,stochastic=False).flatten())
-# 		# plt.show()
-# 		for j in xrange(1000):
-# 			print j
-# 			h = rbm.actH(v,h,w)
-# 			v = rbm.actV(v,h,w,stochastic=False)
-# 		# plt.hist(w.flatten(),bins=100)
-# 		# plt.show()
-# 		img = v.reshape(100,100)
-# 		plt.imshow(img,cmap='gray')
-# 		plt.show()
-# 	v = rbm.randomSample(imgs)
-# 	w = rbm.updateWeights(v,h,w,lr,stochastic=True)
+for i in xrange(10000):
+	print i
+	v = randomSample(imgs)
+	if i > 9995: 
+		# plt.imshow(actH(v,h,w,stochastic=False).reshape(25,-1),cmap='gray')
+		# plt.plot(actH(v,h,w,stochastic=False).flatten())
+		# plt.show()
+		h = actH(v,h,w)
+		v = actV(v,h,w,stochastic=False)
+		# plt.hist(w.flatten(),bins=100)
+		# plt.show()
+		plt.imshow(img,cmap='gray')
+		plt.show()
+	v = randomSample(imgs)
+	w = updateWeights(v,h,w,lr,stochastic=True)
 
 # starts = []
 # for i in xrange(1,len(sigs)):
