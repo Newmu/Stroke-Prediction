@@ -11,11 +11,10 @@ from scipy.spatial.distance import cdist
 from sklearn import linear_model
 from skimage.feature import corner_harris, corner_subpix, corner_peaks, corner_foerstner
 from scipy.ndimage.filters import convolve
-from pybrain.tools.shortcuts import buildNetwork
-from pybrain.structure import SoftmaxLayer
-from pybrain.structure import TanhLayer
-from pybrain.datasets import SupervisedDataSet
-from pybrain.supervised.trainers import BackpropTrainer
+from PIL import Image
+from rbm import rbm
+import cPickle
+from scipy import interpolate
 
 def Neighbors(arr,x,y,n=3):
     ''' Given a 2D-array, returns an nxn array whose "center" element is arr[x,y]'''
@@ -37,6 +36,12 @@ def transform(n):
 	imgO = imgO[y.min():y.max(),x.min():x.max()]
 	return resize(imgO,(100,100))
 
+def pilResize(a,size):
+	pilImg = Image.fromarray(a)
+	pilImg = pilImg.resize(size, Image.ANTIALIAS)
+	return np.array(pilImg)
+
+
 reader = open('train.csv')
 sigs = defaultdict(list)
 for i,line in enumerate(reader):
@@ -45,6 +50,105 @@ for i,line in enumerate(reader):
 		fields = ['row','sig','writer','occurence','time','x','y']
 		data = dict(zip(fields,data))
 		sigs[int(data['sig'])].append([float(data['x']),float(data['y']),float(data['time'])])
+
+reader = open('test.csv')
+tests = defaultdict(list)
+for i,line in enumerate(reader):
+	if i > 0:
+		data = [field.strip() for field in line.split(',')]
+		fields = ['row','sig','writer','occurence','time','x','y']
+		data = dict(zip(fields,data))
+		tests[int(data['sig'])].append([0,0,float(data['time'])])
+
+# img = imread('rbmImgs/100Feats4.png',as_grey=True)
+# img = Filter.median_filter(img,radius=7)
+# plt.imshow(img,cmap='gray')
+# plt.show()
+
+imgs = []
+paths = []
+# # for i in xrange(1,len(sigs)):
+for i in xrange(1,len(sigs)):
+	print i
+	path = np.array(sigs[i])
+	imgO = imread(getFilePath(i),as_grey=True)
+	# thresh = Filter.threshold_otsu(imgO)
+	thresh = 0.9
+	img = imgO < thresh
+	y,x = np.nonzero(img)
+	img = skeletonize(img)
+	# y,x = np.nonzero(img)
+	img = img[y.min():y.max(),x.min():x.max()]
+	imgO = imgO[y.min():y.max(),x.min():x.max()]
+	sumArr = np.array([[1,1,1],[1,1,1],[1,1,1]])
+	summed = convolve(img,sumArr,mode='constant',cval=0)
+	# corners = (((summed == 2) | (summed > 4)) & (img == 1))
+	corners = ((summed == 2) & (img == 1))
+	intersects = ((summed >= 4) & (img == 1))
+	corners = np.transpose(np.array(np.nonzero(corners)))
+	# corners[:,1] += x.min()
+	# corners[:,0] += y.min()
+	# img01 = pilResize(imgO,(100,100))
+	# img02 = resize(imgO,(100,100))
+	# img01 = np.array((img01 > thresh),dtype=int)
+	# img02 = np.array((img02 > thresh),dtype=int)
+	path[:,0] = path[:,0]*imgO.shape[1]
+	path[:,1] = path[:,1]*imgO.shape[0]
+	path[:,2] = path[:,2]/path[:,2].max()
+	t = np.copy(path[:,2])
+	x = np.copy(path[:,0])
+	y = np.copy(path[:,1])
+	mask = ((np.diff(x) == 0) & (np.diff(y) == 0))
+	t[mask] += np.random.random(len(t[mask]))/10000.0
+	x[mask] += np.random.random(len(t[mask]))/100.0
+	y[mask] += np.random.random(len(t[mask]))/100.0
+	tck,u = interpolate.splprep([x,y],k=1,s=0.1)
+	tnew = np.linspace(0,1,300)
+	outx,outy = interpolate.splev(tnew,tck)
+	# tck,u = interpolate.bisplrep(x,y,t)
+	# unew = np.linspace(0,1,300)
+	# outx,outy = interpolate.bisplev(unew,tck)
+	# print outx
+	# print outy
+	# plt.imshow(imgO,cmap='gray')
+	# plt.plot(path[:,0],path[:,1],'r')
+	# plt.plot(outx,outy,'b')
+	paths.append([outx,outy,tnew])
+	# plt.scatter(corners[:,1],corners[:,0],s=50,c='red')
+	# imgs.append(img02.flatten())
+	# plt.show()
+paths = np.array(paths)
+# imgs = np.array(imgs)
+# imgs = cPickle.load(open('imgs100pxFull.p','rb'))
+# print imgs.shape
+# cPickle.dump(imgs,open('imgs100pxFull.p','wb'))
+cPickle.dump(paths,open('pathsLinInterp.p','wb'))
+
+# rbm = rbm(10000,1000,0.01)
+# lr = 0.05
+# v = rbm.randomSample(imgs)
+# h = np.zeros(100)
+# w = np.random.normal(loc=0,scale=0.01,size=(h.size,v.size))
+
+# for i in xrange(10000):
+# 	print i
+# 	v = rbm.randomSample(imgs)
+# 	if i > 9995: 
+# 		# plt.imshow(actH(v,h,w,stochastic=False).reshape(25,-1),cmap='gray')
+# 		# plt.plot(actH(v,h,w,stochastic=False).flatten())
+# 		# plt.show()
+# 		for j in xrange(1000):
+# 			print j
+# 			h = rbm.actH(v,h,w)
+# 			v = rbm.actV(v,h,w,stochastic=False)
+# 		# plt.hist(w.flatten(),bins=100)
+# 		# plt.show()
+# 		img = v.reshape(100,100)
+# 		plt.imshow(img,cmap='gray')
+# 		plt.show()
+# 	v = rbm.randomSample(imgs)
+# 	w = rbm.updateWeights(v,h,w,lr,stochastic=True)
+
 # starts = []
 # for i in xrange(1,len(sigs)):
 # 	starts.append(sigs[i][0])
@@ -63,47 +167,54 @@ for i,line in enumerate(reader):
 # plt.subplot(1,2,2)
 # plt.imshow(img,cmap='gray')
 # plt.show()
-X = []
-Y = []
-# for i in xrange(1,len(sigs)):
-ds = SupervisedDataSet(10000, 1)
-for i in xrange(1,100):
-	print i
-	path = np.array(sigs[i])
-	imgO = imread(getFilePath(i),as_grey=True)
-	# thresh = Filter.threshold_otsu(imgO)
-	thresh = 0.9
-	img = imgO < thresh
-	y,x = np.nonzero(img)
-	img = skeletonize(img)
-	# y,x = np.nonzero(img)
-	img = img[y.min():y.max(),x.min():x.max()]
-	# imgO = imgO[y.min():y.max(),x.min():x.max()]
-	sumArr = np.array([[1,1,1],[1,1,1],[1,1,1]])
-	summed = convolve(img,sumArr,mode='constant',cval=0)
-	# corners = (((summed == 2) | (summed > 4)) & (img == 1))
-	corners = ((summed == 2) & (img == 1))
-	intersects = ((summed >= 4) & (img == 1))
-	corners = np.transpose(np.array(np.nonzero(corners)))
-	corners[:,1] += x.min()
-	corners[:,0] += y.min()
-	pathx = path[:,0]*img.shape[1]+x.min()
-	pathy = path[:,1]*img.shape[0]+y.min()
-	plt.subplot
-	plt.imshow(img,cmap='gray')
-	# plt.scatter(pathx,pathy,s=path[:,2])
-	# plt.scatter(corners[:,1],corners[:,0],s=50,c='red')
-	plt.show()
-	startx = path[0][0]*img.shape[1]+x.min()
-	starty = path[0][1]*img.shape[0]+y.min()
-	start = np.transpose(np.array([[startx],[starty]]))
-	corners[:,[0,1]] = corners[:,[1,0]]
-	dists = cdist(start,corners)
-	if dists.min() < 15:
-		x,y = corners[dists.argmin()][0],corners[dists.argmin()][1]
-		# corners = np.delete(corners,dists.argmin(),axis=0)
-	else:
-		x,y = int(startx),int(starty)
+# X = []
+# Y = []
+# # for i in xrange(1,len(sigs)):
+# for i in xrange(1,100):
+# 	print i
+# 	path = np.array(sigs[i])
+# 	imgO = imread(getFilePath(i),as_grey=True)
+# 	# thresh = Filter.threshold_otsu(imgO)
+# 	thresh = 0.9
+# 	img = imgO < thresh
+# 	y,x = np.nonzero(img)
+# 	img = skeletonize(img)
+# 	# y,x = np.nonzero(img)
+# 	img = img[y.min():y.max(),x.min():x.max()]
+# 	imgO = imgO[y.min():y.max(),x.min():x.max()]
+# 	sumArr = np.array([[1,1,1],[1,1,1],[1,1,1]])
+# 	summed = convolve(img,sumArr,mode='constant',cval=0)
+# 	# corners = (((summed == 2) | (summed > 4)) & (img == 1))
+# 	corners = ((summed == 2) & (img == 1))
+# 	intersects = ((summed >= 4) & (img == 1))
+# 	corners = np.transpose(np.array(np.nonzero(corners)))
+# 	# corners[:,1] += x.min()
+# 	# corners[:,0] += y.min()
+# 	img01 = pilResize(imgO,(100,100))
+# 	img02 = resize(imgO,(100,100))
+# 	img01 = img01 > thresh
+# 	img02 = img02 > thresh
+# 	pathx = path[:,0]*img01.shape[1]
+# 	pathy = path[:,1]*img01.shape[0]
+# 	plt.subplot(1,2,1)
+# 	plt.imshow(img01,cmap='gray')
+# 	# plt.scatter(pathx,pathy,s=path[:,2])
+# 	plt.subplot(1,2,2)
+# 	plt.imshow(img02,cmap='gray')
+# 	# plt.scatter(pathx,pathy,s=path[:,2])
+# 	# plt.scatter(pathx,pathy,s=path[:,2])
+# 	# plt.scatter(corners[:,1],corners[:,0],s=50,c='red')
+# 	plt.show()
+# 	startx = path[0][0]*img.shape[1]+x.min()
+# 	starty = path[0][1]*img.shape[0]+y.min()
+# 	start = np.transpose(np.array([[startx],[starty]]))
+# 	corners[:,[0,1]] = corners[:,[1,0]]
+# 	dists = cdist(start,corners)
+# 	if dists.min() < 15:
+# 		x,y = corners[dists.argmin()][0],corners[dists.argmin()][1]
+# 		# corners = np.delete(corners,dists.argmin(),axis=0)
+# 	else:
+# 		x,y = int(startx),int(starty)
 	# r = 100
 	# correct = Neighbors(imgO,y-r/2,x-r/2,r).flatten()
 	# wrongI = np.random.randint(0,corners.shape[0])
@@ -164,87 +275,4 @@ for i in xrange(1,100):
 # 	correct = Neighbors(imgO,y-r/2,x-r/2,r)
 # 	wrongI = np.random.randint(0,corners.shape[0])
 # 	wrongX,wrongY = corners[wrongI][0],corners[wrongI][1]
-# 	wrong = Neighbors(imgO,wrongY-r/2,wrongX-r/2,r)
-# 	plt.subplot(1,2,1)
-# 	plt.imshow(correct)
-# 	plt.subplot(1,2,2)
-# 	plt.imshow(wrong)
-# 	correct = net.activate(correct.flatten())
-# 	wrong = net.activate(wrong.flatten())
-# 	print correct,wrong
-# 	corrects.append(correct)
-# 	wrongs.append(wrong)
-# 	plt.show()
-	# wGuess = lr.predict(wrong.flatten())
-	# rGuess = lr.predict(correct.flatten())
-	# if wGuess != -1:
-	# 	errs.append(1)
-	# else:
-	# 	errs.append(0)
-	# if rGuess != 1:
-	# 	errs.append(1)
-	# else:
-	# 	errs.append(0)
-	# print 'wrong',wGuess
-	# print 'right',rGuess
-# print np.mean(corrects)
-# print np.mean(wrongs)
-	
-# lrx = linear_model.LogisticRegression()
-# lry = linear_model.LogisticRegression()
-# lrx.fit(X,Y[:,0])
-# print 'fitted x'
-# lry.fit(X,Y[:,1])
-# print 'fitted Y'
-# errsx = []
-# errsy = []
-# for i in xrange(500,600):
-# 	print i
-# 	x = transform(i)
-# 	plt.imshow(x)
-# 	path = np.array(sigs[i])
-# 	yx = path[0][0]
-# 	yy = path[0][1]
-# 	yx = np.abs(lrx.predict(x.flatten())-yx)
-# 	yy = np.abs(lry.predict(x.flatten())-yy)
-# 	plt.scatter(yx*100,(1-yy)*100,c='red')
-# 	plt.show()
-# 	errsx.append(yx)
-# 	errsy.append(yy)
-# errsx = np.array(errsx)
-# errsy = np.array(errsy)
-# plt.hist(errsx,bins=20)
-# print errsx.sum()/errsx.size
-# print errsy.sum()/errsy.size
-# plt.show()
-# plt.hist(errsy,bins=20)
-# plt.show()
-
-	# plt.subplot(1,3,1)
-	# plt.scatter(path[:,0],1-path[:,1],s=path[:,2])
-	# plt.subplot(1,3,2)
-	# plt.imshow(imgO,cmap='gray')
-	# plt.subplot(1,3,3)
-	# plt.imshow(img,cmap='gray')
-	# plt.show()
-# for i in xrange(len(sigs),1081):
-# 	print i
-# 	i = transform(i)
-# 	i = i < 0.9
-# 	i = skeletonize(i)
-# 	points = np.transpose(np.array(np.nonzero(i)))
-# 	imgErrs = []
-# 	for img in imgs:
-# 		errs =[]
-# 		for point in points:
-# 			point = np.transpose(np.array([[point[0]],[point[1]]]))
-# 			dists = cdist(point,img)
-# 			errs.append(dists.min())
-# 		imgErrs.append(np.sum(errs))
-# 	plt.plot(imgErrs)
-# 	plt.show()
-	# errs = []
-	# for j in imgs:
-	# 	errs.append(np.abs(i-j).sum())
-	# plt.plot(errs)
-	# plt.show()
+# 	wrong = Neighbors(imgO,wrongY-r/2,wrongX-r
