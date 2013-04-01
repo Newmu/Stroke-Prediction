@@ -97,10 +97,10 @@ for i,line in enumerate(reader):
 		data = dict(zip(fields,data))
 		tests[int(data['sig'])].append([0,0,float(data['time'])])
 
-# img = imread('rbmImgs/100Feats4.png',as_grey=True)
-# img = Filter.median_filter(img,radius=7)
-# plt.imshow(img,cmap='gray')
-# plt.show()
+img = imread('rbmImgs/100Feats4.png',as_grey=True)
+img = Filter.median_filter(img,radius=7)
+plt.imshow(img,cmap='gray')
+plt.show()
 
 # imgs = []
 # paths = []
