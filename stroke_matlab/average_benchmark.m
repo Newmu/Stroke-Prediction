@@ -1,0 +1,24 @@
+test=csvread('..\test.csv',1,0);
+ysall=[];
+xsall=[];
+for signatureID=606:1081
+    signatureID
+    signatureLength=sum(test(:,2)==signatureID);
+    filename=int2str(signatureID);
+    while(length(filename)<4)
+        filename=['0',filename];
+    end
+    image=imread(['..\images\',filename,'.jpg']);
+    binary=IM2BW(image,0.9);
+    zhang=Skeleton(~binary);
+    [r,c,v]=find(zhang);
+    x=(mean(c)-min(c))/(max(c)-min(c));
+    y=(mean(r)-min(r))/(max(r)-min(r));
+    xs=x*ones(1,signatureLength);
+    ys=y*ones(1,signatureLength);
+    xsall=[xsall,xs];    
+    ysall=[ysall,ys];
+end
+test(:,6)=xsall';
+test(:,7)=ysall';
+csvwrite_with_headers('xy_benchmark.csv',test,{'prediction_id','signature_id','writer_id','occurrence_id','time','x','y'});
