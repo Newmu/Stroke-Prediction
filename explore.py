@@ -300,6 +300,9 @@ def formatDS(low,high,r,useIntersects=True):
 		corners = np.transpose(np.array(np.nonzero(corners)))
 		startx = path[0][0]*img.shape[1]
 		starty = path[0][1]*img.shape[0]
+		sigX = path[:,0]*img.shape[1]
+		sigY = path[:,1]*img.shape[0]
+		plt.imshow()
 		# plt.subplot(1,2,1)
 		# plt.imshow(imgO,cmap='gray')
 		# plt.scatter(startx,starty,c='red')
@@ -315,14 +318,14 @@ def formatDS(low,high,r,useIntersects=True):
 				corners = np.vstack((itrscts,corners))
 			except:
 				print 'something went wrong at',sig
-		plt.subplot(1,2,1)
-		plt.imshow(imgO,cmap='gray')
-		plt.scatter(startx,starty,c='red')
-		plt.subplot(1,2,2)
-		plt.imshow(img)
-		plt.scatter(corners[:,1],corners[:,0],c='pink')
-		plt.scatter(startx,starty,c='red')
-		plt.show()
+		# plt.subplot(1,2,1)
+		# plt.imshow(imgO,cmap='gray')
+		# plt.scatter(startx,starty,c='red')
+		# plt.subplot(1,2,2)
+		# plt.imshow(img)
+		# plt.scatter(corners[:,1],corners[:,0],c='pink')
+		# plt.scatter(startx,starty,c='red')
+		# plt.show()
 		corners[:,[0,1]] = corners[:,[1,0]]
 		dists = cdist(start,corners)
 		for i,corner in enumerate(corners):
@@ -552,70 +555,71 @@ def find_nearest_idx(array,value):
 # 		plt.show()
 
 
-# imgs = []
-# paths = []
-# # # for i in xrange(1,len(sigs)):
-# for i in xrange(len(sigs)):
-# 	i = randint(0,len(sigs))
-# 	print i
-# 	path = np.array(sigs[i])
-# 	imgO = imread(getFilePath(i),as_grey=True)
-# 	# thresh = Filter.threshold_otsu(imgO)
-# 	thresh = 0.9
-# 	img = imgO < thresh
-# 	y,x = np.nonzero(img)
-# 	img = skeletonize(img)
-# 	# y,x = np.nonzero(img)
-# 	img = img[y.min():y.max(),x.min():x.max()]
-# 	# imgO = imgO[y.min():y.max(),x.min():x.max()]
-# 	sumArr = np.array([[1,1,1],[1,1,1],[1,1,1]])
-# 	summed = convolve(img,sumArr,mode='constant',cval=0)
-# 	# corners = (((summed == 2) | (summed > 4)) & (img == 1))
-# 	corners = ((summed == 2) & (img == 1))
-# 	intersects = ((summed >= 4) & (img == 1))
-# 	corners = np.transpose(np.array(np.nonzero(corners)))
-# 	print corners.shape
-# 	plt.imshow(imgO,cmap='gray')
-# 	# sX = path[0][0]*img.shape[1]+x.min()
-# 	# sY = path[0][1]*img.shape[0]+y.min()
-# 	sX = path[:,0]*img.shape[1]+x.min()
-# 	sY = path[:,1]*img.shape[0]+y.min()
-# 	plt.scatter(sX,sY,c='red',s=50)
-# 	plt.scatter(corners[:,1]+x.min(),corners[:,0]+y.min(),c='green',s=50)
-# 	plt.show()
-# 	# corners[:,1] += x.min()
-# 	# corners[:,0] += y.min()
-# 	# img01 = pilResize(imgO,(100,100))
-# 	# img02 = resize(imgO,(100,100))
-# 	# img01 = np.array((img01 > thresh),dtype=int)
-# 	# img02 = np.array((img02 > thresh),dtype=int)
-# 	path[:,0] = path[:,0]*imgO.shape[1]
-# 	path[:,1] = path[:,1]*imgO.shape[0]
-# 	path[:,2] = path[:,2]/path[:,2].max()
-# 	t = np.copy(path[:,2])
-# 	x = np.copy(path[:,0])
-# 	y = np.copy(path[:,1])
-# 	mask = ((np.diff(x) == 0) & (np.diff(y) == 0))
-# 	t[mask] += np.random.random(len(t[mask]))/10000.0
-# 	x[mask] += np.random.random(len(t[mask]))/100.0
-# 	y[mask] += np.random.random(len(t[mask]))/100.0
-# 	tck,u = interpolate.splprep([x,y],k=1,s=0.1)
-# 	tnew = np.linspace(0,1,300)
-# 	outx,outy = interpolate.splev(tnew,tck)
-# 	# tck,u = interpolate.bisplrep(x,y,t)
-# 	# unew = np.linspace(0,1,300)
-# 	# outx,outy = interpolate.bisplev(unew,tck)
-# 	# print outx
-# 	# print outy
-# 	# plt.imshow(imgO,cmap='gray')
-# 	# plt.plot(path[:,0],path[:,1],'r')
-# 	# plt.plot(outx,outy,'b')
-# 	paths.append([outx,outy,tnew])
-# 	# plt.scatter(corners[:,1],corners[:,0],s=50,c='red')
-# 	# imgs.append(img02.flatten())
-# 	# plt.show()
-# paths = np.array(paths)
-# imgs = np.array(imgs)
+imgs = []
+paths = []
+# # for i in xrange(1,len(sigs)):
+for i in xrange(len(sigs)):
+	i = randint(0,len(sigs))
+	print i
+	path = np.array(sigs[i])
+	imgO = imread(getFilePath(i),as_grey=True)
+	# thresh = Filter.threshold_otsu(imgO)
+	thresh = 0.9
+	img = imgO < thresh
+	y,x = np.nonzero(img)
+	img = skeletonize(img)
+	# y,x = np.nonzero(img)
+	img = img[y.min():y.max(),x.min():x.max()]
+	imgO = imgO[y.min():y.max(),x.min():x.max()]
+	sumArr = np.array([[1,1,1],[1,1,1],[1,1,1]])
+	summed = convolve(img,sumArr,mode='constant',cval=0)
+	# corners = (((summed == 2) | (summed > 4)) & (img == 1))
+	corners = ((summed == 2) & (img == 1))
+	intersects = ((summed >= 4) & (img == 1))
+	corners = np.transpose(np.array(np.nonzero(corners)))
+	print corners.shape
+	# plt.imshow(imgO,cmap='gray')
+	# sX = path[0][0]*img.shape[1]+x.min()
+	# sY = path[0][1]*img.shape[0]+y.min()
+	sX = path[:,0]*img.shape[1]
+	sY = path[:,1]*img.shape[0]
+	plt.imshow(imgO,cmap='gray')
+	plt.scatter(sX,sY,c='red',s=50)
+	# plt.scatter(corners[:,1]+x.min(),corners[:,0]+y.min(),c='green',s=50)
+	plt.show()
+	# corners[:,1] += x.min()
+	# corners[:,0] += y.min()
+	# img01 = pilResize(imgO,(100,100))
+	# img02 = resize(imgO,(100,100))
+	# img01 = np.array((img01 > thresh),dtype=int)
+	# img02 = np.array((img02 > thresh),dtype=int)
+	path[:,0] = path[:,0]*imgO.shape[1]
+	path[:,1] = path[:,1]*imgO.shape[0]
+	path[:,2] = path[:,2]/path[:,2].max()
+	t = np.copy(path[:,2])
+	x = np.copy(path[:,0])
+	y = np.copy(path[:,1])
+	mask = ((np.diff(x) == 0) & (np.diff(y) == 0))
+	t[mask] += np.random.random(len(t[mask]))/10000.0
+	x[mask] += np.random.random(len(t[mask]))/100.0
+	y[mask] += np.random.random(len(t[mask]))/100.0
+	tck,u = interpolate.splprep([x,y],k=1,s=0.1)
+	tnew = np.linspace(0,1,300)
+	outx,outy = interpolate.splev(tnew,tck)
+	# tck,u = interpolate.bisplrep(x,y,t)
+	# unew = np.linspace(0,1,300)
+	# outx,outy = interpolate.bisplev(unew,tck)
+	# print outx
+	# print outy
+	# plt.imshow(imgO,cmap='gray')
+	# plt.plot(path[:,0],path[:,1],'r')
+	# plt.plot(outx,outy,'b')
+	paths.append([outx,outy,tnew])
+	# plt.scatter(corners[:,1],corners[:,0],s=50,c='red')
+	# imgs.append(img02.flatten())
+	# plt.show()
+paths = np.array(paths)
+imgs = np.array(imgs)
 
 # imgs = cPickle.load(open('imgs100pxFull.p','rb'))
 # imgs = imgs[:604]
@@ -667,12 +671,12 @@ def find_nearest_idx(array,value):
 # 	v = randomSample(imgs,paths)
 # 	w = updateWeights(v,h,w,lr,stochastic=True)
 
-starts = []
-for i in xrange(1,len(sigs)):
-	starts.append(sigs[i][0])
-starts = np.array(starts)
-plt.scatter(starts[:,0],1-starts[:,1])
-plt.show()
+# starts = []
+# for i in xrange(1,len(sigs)):
+# 	starts.append(sigs[i][0])
+# starts = np.array(starts)
+# plt.scatter(starts[:,0],1-starts[:,1])
+# plt.show()
 # T = np.zeros((100,100))
 # num = 1010
 # imgO = imread('images/0010.jpg',as_grey=True)

@@ -186,7 +186,7 @@ for i,img in enumerate(imgs):
 # for i in xrange(1,len(sigs)+1):
 # 	if i % 50 == 0: print i
 # 	imgData.append(tCoords(i))
-# imgData = np.array(imgData)
+imgData = np.array(imgData)
 minPos = []
 for i in xrange(1,len(sigs)+1):
 	x,y,t = np.mean(sigs[i],axis=0)
@@ -194,10 +194,11 @@ for i in xrange(1,len(sigs)+1):
 # 	# plt.imshow(imgs[i-1].reshape(100,100),cmap='gray')
 # 	# plt.scatter(x*100,y*100)
 # 	# plt.show()
+tPos = np.array(tPos)
 minPos = np.array(minPos)
-# plt.scatter(minPos[:,0],minPos[:,1],c='red')
-# plt.scatter(imgData[:,0],imgData[:,1],c='blue')
-# plt.show()
+plt.scatter(minPos[:,0],minPos[:,1],c='red')
+plt.scatter(tPos[:,0],tPos[:,1],c='blue')
+plt.show()
 # minPos = np.array(minPos)
 # cPickle.dump(minPos,open('minPos.pkl','wb'))
 
